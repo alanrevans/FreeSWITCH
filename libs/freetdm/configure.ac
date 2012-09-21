@@ -136,7 +136,7 @@ AC_CHECK_LIB([dl], [dlopen])
 AC_CHECK_LIB([pthread], [pthread_create])
 AC_CHECK_LIB([m], [cos])
 
-AC_CHECK_HEADERS([netdb.h sys/select.h])
+AC_CHECK_HEADERS([netdb.h sys/select.h execinfo.h])
 
 AC_CHECK_FUNC([gethostbyname_r],
 	[], [AC_CHECK_LIB([nsl], [gethostbyname_r])]
@@ -459,6 +459,8 @@ AC_MSG_RESULT([
 + Modules
 
   Signalling:
+	ftmod_analog....................... yes
+	ftmod_analog_em.................... yes
 	ftmod_isdn......................... ${HAVE_LIBISDN}
 	ftmod_libpri....................... ${HAVE_LIBPRI}
 	ftmod_sangoma_isdn................. ${HAVE_SNG_ISDN}
@@ -467,6 +469,7 @@ AC_MSG_RESULT([
 	ftmod_gsm.......................... ${HAVE_WAT}
 	ftmod_pritap....................... ${HAVE_PRITAP}
   I/O:
+	ftmod_zt........................... yes
 	ftmod_wanpipe...................... ${HAVE_LIBSANGOMA}
 	ftmod_misdn........................ ${HAVE_MISDN}
 

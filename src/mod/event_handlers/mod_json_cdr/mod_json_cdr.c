@@ -130,6 +130,7 @@ static switch_status_t set_json_cdr_log_dirs()
 			if ((path = switch_safe_strdup(globals.base_log_dir))) {
 				switch_thread_rwlock_wrlock(globals.log_path_lock);
 				switch_safe_free(globals.log_dir);
+				switch_dir_make_recursive(path, SWITCH_DEFAULT_DIR_PERMS, globals.pool);
 				globals.log_dir = path;
 				switch_thread_rwlock_unlock(globals.log_path_lock);
 			} else {
@@ -168,6 +169,7 @@ static switch_status_t set_json_cdr_log_dirs()
 			if ((path = switch_safe_strdup(globals.base_err_log_dir[err_dir_index]))) {
 				switch_thread_rwlock_wrlock(globals.log_path_lock);
 				switch_safe_free(globals.err_log_dir[err_dir_index]);
+				switch_dir_make_recursive(path, SWITCH_DEFAULT_DIR_PERMS, globals.pool);
 				globals.err_log_dir[err_dir_index] = path;
 				switch_thread_rwlock_unlock(globals.log_path_lock);
 			} else {
@@ -251,12 +253,8 @@ static switch_status_t my_on_reporting(switch_core_session_t *session)
 				}
 			} else {
 				char ebuf[512] = { 0 };
-#ifdef WIN32
-				strerror_s(ebuf, sizeof(ebuf), errno);
-#else
-				strerror_r(errno, ebuf, sizeof(ebuf));
-#endif
-				switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Error writing [%s][%s]\n", path, ebuf);
+				switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Error writing [%s][%s]\n",
+						path, switch_strerror_r(errno, ebuf, sizeof(ebuf)));
 			}
 			switch_safe_free(path);
 		}
@@ -410,12 +408,8 @@ static switch_status_t my_on_reporting(switch_core_session_t *session)
 					break;
 				} else {
 					char ebuf[512] = { 0 };
-#ifdef WIN32
-					strerror_s(ebuf, sizeof(ebuf), errno);
-#else
-					strerror_r(errno, ebuf, sizeof(ebuf));
-#endif
-					switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Can't open %s! [%s]\n", path, ebuf);
+					switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Can't open %s! [%s]\n",
+							path, switch_strerror_r(errno, ebuf, sizeof(ebuf)));
 
 				}
 
