@@ -369,7 +369,9 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_record_file(switch_core_session_t *se
 	uint32_t org_silence_hits = 0;
 	int asis = 0;
 	int32_t sample_start = 0;
-	int waste_resources = 0, fill_cng = 0;
+// AlanE :  Hack FIXME force waste_resources and fill_cng to 1400 to send rtp stream during recording/dtmf
+//      int waste_resources = 0, fill_cng = 0;
+        int waste_resources = 1400, fill_cng = 1400;
 	switch_codec_implementation_t read_impl = { 0 };
 	switch_frame_t write_frame = { 0 };
 	unsigned char write_buf[SWITCH_RECOMMENDED_BUFFER_SIZE] = { 0 };
