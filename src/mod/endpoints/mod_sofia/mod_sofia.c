@@ -5587,6 +5587,7 @@ static void general_event_handler(switch_event_t *event)
 			const char *from = switch_event_get_header(event, "from");
 			const char *subject = switch_event_get_header(event, "subject");
 			const char *uuid = switch_event_get_header(event, "uuid");
+			char *contact = switch_event_get_header(event, "contact");
 			const char *body = switch_event_get_body(event);
 
 			sofia_profile_t *profile;
@@ -5598,50 +5599,13 @@ static void general_event_handler(switch_event_t *event)
 			}
 
 /* AlanE: Added this 'if' to attempt to use to and from fields if provided in the SEND_MESSAGE Event */
-            if (ct && to && from) {
-                char *contact, *p;
-                switch_console_callback_match_t *list = NULL;
-                switch_console_callback_match_node_t *m;
-				char *from_id = NULL, *to_id = NULL;
-
-                char *id = strdup(to);
-
-                switch_assert(id);
-
-                if ((host = strchr(id, '@'))) {
-                      *host++ = '\0';
-                      user = id;
-                } else {
-                      host = id;
-                }
-
-                if (!(list = sofia_reg_find_reg_url_multi(profile, user, host))) {
-                    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Can't find registered user %s@%s\n", user, host);
-                    return;
-                }
-
-				from_id = switch_mprintf("sip:%s", from);
-				to_id = switch_mprintf("sip:%s", to);
-
-                for (m = list->head; m; m = m->next) {
-                    contact = sofia_glue_get_url_from_contact(m->val, 0);
-
-                    if ((p = strstr(contact, ";fs_"))) {
-                        *p = '\0';
-                    }
-
+            if (ct && to && from && contact) {
+                    char *url = sofia_glue_get_url_from_contact(contact, 0);
                     nh = nua_handle(profile->nua,
-                                    NULL, NUTAG_URL(contact), SIPTAG_FROM_STR(from_id), SIPTAG_TO_STR(to_id), SIPTAG_CONTACT_STR(profile->url), TAG_END());
+                                    NULL, NUTAG_URL(url), SIPTAG_FROM_STR(from), SIPTAG_TO_STR(to), SIPTAG_CONTACT_STR(profile->url), TAG_END());
 
                     nua_message(nh, NUTAG_NEWSUB(1), SIPTAG_CONTENT_TYPE_STR(ct),
                                 TAG_IF(!zstr(body), SIPTAG_PAYLOAD_STR(body)), TAG_IF(!zstr(subject), SIPTAG_SUBJECT_STR(subject)), TAG_END());
-                }
-
-                free(id);
-                free(from_id);
-                free(to_id);
-                switch_console_free_matches(&list);
-
                 sofia_glue_release_profile(profile);
 
 /* AlanE: Original 'if' used user and host for both to and from fields - retained. just in case, for backward compat */
