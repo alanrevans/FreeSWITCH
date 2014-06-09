@@ -1468,7 +1468,8 @@ SWITCH_DECLARE(switch_status_t) switch_media_handle_create(switch_media_handle_t
 		session->media_handle->engines[SWITCH_MEDIA_TYPE_VIDEO].cur_payload_map = session->media_handle->engines[SWITCH_MEDIA_TYPE_VIDEO].payload_map;
 		session->media_handle->engines[SWITCH_MEDIA_TYPE_VIDEO].cur_payload_map->current = 1;
 
-		switch_channel_set_flag(session->channel, CF_DTLS_OK);
+// AlanE: Don't want to use secure DTLS for 3PCC
+//		switch_channel_set_flag(session->channel, CF_DTLS_OK);
 
 		status = SWITCH_STATUS_SUCCESS;
 	}

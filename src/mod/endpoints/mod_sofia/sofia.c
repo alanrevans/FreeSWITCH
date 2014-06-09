@@ -6624,7 +6624,9 @@ static void sofia_handle_sip_i_state(switch_core_session_t *session, int status,
 			if (sofia_test_flag(tech_pvt, TFLAG_3PCC) && sofia_test_pflag(profile, PFLAG_3PCC_PROXY)) {
 				switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG, "3PCC-PROXY, Got my PRACK\n");
 				sofia_set_flag(tech_pvt, TFLAG_3PCC_HAS_ACK);
-			}
+			} else {
+				switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG, "3PCC-PROXY, NOT Got my PRACK\n");
+            }
 
 			match = sofia_media_negotiate_sdp(session, r_sdp, SDP_TYPE_RESPONSE);
 			if (match) {
@@ -6643,7 +6645,9 @@ static void sofia_handle_sip_i_state(switch_core_session_t *session, int status,
 				switch_channel_hangup(channel, SWITCH_CAUSE_DESTINATION_OUT_OF_ORDER);
 				switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_ERROR, "Early Media Codec Error!\n");
 			}
-		}
+		} else {
+                switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG, "3PCC-PROXY, !answer_recv\n");
+        }
 		break;
 	case nua_callstate_completed:
 		if (r_sdp) {
