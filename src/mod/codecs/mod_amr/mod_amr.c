@@ -341,6 +341,7 @@ static switch_status_t switch_amr_encode(switch_codec_t *codec,
         switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "AMR Encoder Error!\n");
         return SWITCH_STATUS_GENERR;
     }
+    out_data_ptr += *encoded_data_len;
     *encoded_data_len = *encoded_data_len+1; // Add the ToC to the length
 	return SWITCH_STATUS_SUCCESS;
 #endif
@@ -373,7 +374,7 @@ static switch_status_t switch_amr_decode(switch_codec_t *codec,
 	return SWITCH_STATUS_FALSE;
 #else
     uint8_t *in_data_ptr;
-    int16_t *out_data_ptr;
+    uint8_t *out_data_ptr;
     uint8_t *tocs;
     uint8_t *cmr;
     int toclen;
@@ -387,7 +388,7 @@ static switch_status_t switch_amr_decode(switch_codec_t *codec,
 	}
 
     in_data_ptr = (uint8_t *)encoded_data;
-    out_data_ptr = (int16_t *)decoded_data;
+    out_data_ptr = (uint8_t *)decoded_data;
     cmr = in_data_ptr;
     in_data_ptr++;									// AlanE: Skip AMR Header - ignore CMR for now
     tocs = in_data_ptr;
@@ -401,6 +402,11 @@ static switch_status_t switch_amr_decode(switch_codec_t *codec,
     for(i=0;i<toclen;++i){
         int index=toc_get_index(tocs[i]);
         int framesz;
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "Process frame #:%d\n", i);
+        if(index == 15) { /* AlanE: No Data */
+            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "No Data in AMR Table of Contents!\n");
+            break;
+        }
         if(index >= 9) {
             switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Bad index in AMR Table of Contents!\n");
             break;
@@ -412,7 +418,7 @@ static switch_status_t switch_amr_decode(switch_codec_t *codec,
         }
         tmp[0]=tocs[i];
         memcpy(&tmp[1],in_data_ptr,framesz);
-        Decoder_Interface_Decode(context->decoder_state,(unsigned char *)tmp,out_data_ptr,0);
+        Decoder_Interface_Decode(context->decoder_state, (unsigned char *)tmp, (short *)out_data_ptr, 0);
         out_data_ptr += codec->implementation->decoded_bytes_per_packet;
 	    *decoded_data_len += codec->implementation->decoded_bytes_per_packet;
         in_data_ptr+=framesz;
@@ -433,6 +439,7 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_amr_load)
 #ifndef AMR_PASSTHROUGH
 	char *cf = "amr.conf";
 	switch_xml_t cfg, xml, settings, param;
+    int count;
 
 	memset(&globals, 0, sizeof(globals));
 	globals.default_bitrate = AMR_DEFAULT_BITRATE;
@@ -457,23 +464,25 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_amr_load)
 #ifndef AMR_PASSTHROUGH
 	codec_interface->parse_fmtp = switch_amr_fmtp_parse;
 #endif 
-	switch_core_codec_add_implementation(pool, codec_interface, SWITCH_CODEC_TYPE_AUDIO,	/* enumeration defining the type of the codec */
+	for (count = 1; count <= 3; count++) {
+		switch_core_codec_add_implementation(pool, codec_interface, SWITCH_CODEC_TYPE_AUDIO,	/* enumeration defining the type of the codec */
 										 98,	/* the IANA code number */
 										 "AMR",	/* the IANA code name */
 										 "octet-align=0",	/* default fmtp to send (can be overridden by the init function) */
 										 8000,	/* samples transferred per second */
 										 8000,	/* actual samples transferred per second */
 										 12200,	/* bits transferred per second */
-										 20000,	/* number of microseconds per frame */
-										 160,	/* number of samples per frame */
-										 320,	/* number of bytes per frame decompressed */
+										 20000 * count,	/* number of microseconds per frame */
+										 160 * count,	/* number of samples per frame */
+										 320 * count,	/* number of bytes per frame decompressed */
 										 0,	/* number of bytes per frame compressed */
 										 1,	/* number of channels represented */
-										 1,	/* number of frames per network packet */
+										 1 * count,	/* number of frames per network packet */
 										 switch_amr_init,	/* function to initialize a codec handle using this implementation */
 										 switch_amr_encode,	/* function to encode raw data into encoded data */
 										 switch_amr_decode,	/* function to decode encoded data into raw data */
 										 switch_amr_destroy);	/* deinitalize a codec handle using this implementation */
+	}
 
 	/* indicate that the module should continue to be loaded */
 	return SWITCH_STATUS_SUCCESS;

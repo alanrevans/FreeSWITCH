@@ -5243,7 +5243,6 @@ static int rtp_common_read(switch_rtp_t *rtp_session, switch_payload_t *payload_
 				}
 				
 				if (rtp_session->flags[SWITCH_RTP_FLAG_VIDEO]) {
-					//switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(rtp_session->session), SWITCH_LOG_CRIT, "Read bytes (%i) %ld\n", status, bytes); 
 					
 					if (bytes == 0) {
 						if (check_rtcp_and_ice(rtp_session) == -1) {

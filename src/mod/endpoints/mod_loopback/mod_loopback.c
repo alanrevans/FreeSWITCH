@@ -297,7 +297,8 @@ static switch_status_t channel_on_init(switch_core_session_t *session)
 			switch_channel_set_private(channel, "__loopback_vars__", NULL);
 
 			for (h = vars->headers; h; h = h->next) {
-				switch_channel_set_variable(tech_pvt->other_channel, h->name, h->value);
+				// switch_channel_set_variable(tech_pvt->other_channel, h->name, h->value);
+				switch_channel_set_variable_var_check(tech_pvt->other_channel, h->name, h->value, SWITCH_FALSE);
 			}
 
 			switch_event_destroy(&vars);
