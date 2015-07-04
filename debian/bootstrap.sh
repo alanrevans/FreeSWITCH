@@ -646,6 +646,7 @@ Recommends:
  freeswitch-mod-event-test (= \${binary:Version}),
  freeswitch-mod-event-zmq (= \${binary:Version}),
  freeswitch-mod-json-cdr (= \${binary:Version}),
+ freeswitch-mod-kazoo (= \${binary:Version}),
  freeswitch-mod-radius-cdr (= \${binary:Version}),
  freeswitch-mod-snmp (= \${binary:Version}),
  freeswitch-mod-local-stream (= \${binary:Version}),
