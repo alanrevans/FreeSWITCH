@@ -1,6 +1,6 @@
 /* 
  * FreeSWITCH Modular Media Switching Software Library / Soft-Switch Application
- * Copyright (C) 2005-2014, Anthony Minessale II <anthm@freeswitch.org>
+ * Copyright (C) 2005-2012, Anthony Minessale II <anthm@freeswitch.org>
  *
  * Version: MPL 1.1
  *
@@ -106,6 +106,7 @@ struct amr_codec_settings {
 	switch_byte_t ptime;
 	switch_byte_t channels;
 	switch_byte_t flags;
+    switch_byte_t enc_modes;
 };
 typedef struct amr_codec_settings amr_codec_settings_t;
 
@@ -124,6 +125,21 @@ struct amr_context {
 	void *decoder_state;
 	switch_byte_t enc_modes;
 	switch_byte_t enc_mode;
+    switch_byte_t flags;
+    int dtx_mode;
+};
+
+static const int amr_frame_sizes[]={
+        12,
+        13,
+        15,
+        17,
+        19,
+        20,
+        26,
+        31,
+        5,
+        0
 };
 
 #define AMR_DEFAULT_BITRATE AMR_BITRATE_1220
@@ -230,8 +246,9 @@ static switch_status_t switch_amr_init(switch_codec_t *codec, switch_codec_flag_
 	switch_codec_fmtp_t codec_fmtp;
 	amr_codec_settings_t amr_codec_settings;
 	int encoding, decoding;
-	int x, i, argc;
-	char *argv[10];
+	int i;
+//	int x, i, argc;
+//	char *argv[10];
 	char fmtptmp[128];
 
 	encoding = (flags & SWITCH_CODEC_FLAG_ENCODE);
@@ -304,20 +321,45 @@ static switch_status_t switch_amr_encode(switch_codec_t *codec,
 										 uint32_t decoded_rate, void *encoded_data, uint32_t *encoded_data_len, uint32_t *encoded_rate,
 										 unsigned int *flag)
 {
+
 #ifdef AMR_PASSTHROUGH
 	switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "This codec is only usable in passthrough mode!\n");
 	return SWITCH_STATUS_FALSE;
 #else
+    switch_byte_t *out_data_ptr;
 	struct amr_context *context = codec->private_info;
 
 	if (!context) {
 		return SWITCH_STATUS_FALSE;
 	}
 
-	*encoded_data_len = Encoder_Interface_Encode(context->encoder_state, context->enc_mode, (int16_t *) decoded_data, (switch_byte_t *) encoded_data, 0);
-
+    out_data_ptr = (switch_byte_t *)encoded_data;
+    out_data_ptr[0] = 0x70;		// AlanE This is the AMR Header before the ToC 7 = 12.2kbit/sec
+    out_data_ptr++;
+	*encoded_data_len = Encoder_Interface_Encode(context->encoder_state, context->enc_mode, (int16_t *) decoded_data, out_data_ptr, 0);
+    if (*encoded_data_len<=0 || *encoded_data_len>32){
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "AMR Encoder Error!\n");
+        return SWITCH_STATUS_GENERR;
+    }
+    out_data_ptr += *encoded_data_len;
+    *encoded_data_len = *encoded_data_len+1; // Add the ToC to the length
 	return SWITCH_STATUS_SUCCESS;
 #endif
+}
+
+#define toc_get_f(toc) ((toc) >> 7)
+#define toc_get_index(toc)      ((toc>>3) & 0xf)
+
+static int toc_list_check(uint8_t *tl, uint32_t buflen){
+        int s=1;
+        while(toc_get_f(*tl)){
+                tl++;
+                s++;
+                if (s>buflen){
+                        return -1;
+                }
+        }
+        return s;
 }
 
 static switch_status_t switch_amr_decode(switch_codec_t *codec,
@@ -331,14 +373,60 @@ static switch_status_t switch_amr_decode(switch_codec_t *codec,
 	switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "This codec is only usable in passthrough mode!\n");
 	return SWITCH_STATUS_FALSE;
 #else
+    uint8_t *in_data_ptr;
+    uint8_t *out_data_ptr;
+    uint8_t *tocs;
+    uint8_t *cmr;
+    int toclen;
+    int i;
+    uint8_t tmp[32];
+
 	struct amr_context *context = codec->private_info;
 
 	if (!context) {
 		return SWITCH_STATUS_FALSE;
 	}
 
-	Decoder_Interface_Decode(context->decoder_state, (unsigned char *) encoded_data, (int16_t *) decoded_data, 0);
-	*decoded_data_len = codec->implementation->decoded_bytes_per_packet;
+    in_data_ptr = (uint8_t *)encoded_data;
+    out_data_ptr = (uint8_t *)decoded_data;
+    cmr = in_data_ptr;
+    in_data_ptr++;									// AlanE: Skip AMR Header - ignore CMR for now
+    tocs = in_data_ptr;
+    toclen=toc_list_check(tocs,encoded_data_len);
+    if (toclen == -1) {
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Invalid AMR Table of Contents!\n");
+        return SWITCH_STATUS_GENERR;
+    }
+    in_data_ptr+=toclen;
+    *decoded_data_len = 0;
+    for(i=0;i<toclen;++i){
+        int index=toc_get_index(tocs[i]);
+        int framesz;
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "Process frame #:%d\n", i);
+        if(index == 15) { /* AlanE: No Data */
+            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "No Data in AMR Table of Contents!\n");
+            break;
+        }
+        if(index >= 9) {
+            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Bad index in AMR Table of Contents!\n");
+            break;
+        }
+        framesz=amr_frame_sizes[index];
+        if (framesz > encoded_data_len){
+            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "AMR Truncated frame!\n");
+            break;
+        }
+        tmp[0]=tocs[i];
+        memcpy(&tmp[1],in_data_ptr,framesz);
+        Decoder_Interface_Decode(context->decoder_state, (unsigned char *)tmp, (short *)out_data_ptr, 0);
+        out_data_ptr += codec->implementation->decoded_bytes_per_packet;
+	    *decoded_data_len += codec->implementation->decoded_bytes_per_packet;
+        in_data_ptr+=framesz;
+        encoded_data_len-=framesz;
+    }
+
+	// Decoder_Interface_Decode(context->decoder_state, (unsigned char *) in_data_ptr, (int16_t *) decoded_data, 0);
+	// *decoded_data_len = codec->implementation->decoded_bytes_per_packet;
 
 	return SWITCH_STATUS_SUCCESS;
 #endif
@@ -351,6 +439,7 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_amr_load)
 #ifndef AMR_PASSTHROUGH
 	char *cf = "amr.conf";
 	switch_xml_t cfg, xml, settings, param;
+    int count;
 
 	memset(&globals, 0, sizeof(globals));
 	globals.default_bitrate = AMR_DEFAULT_BITRATE;
@@ -375,23 +464,25 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_amr_load)
 #ifndef AMR_PASSTHROUGH
 	codec_interface->parse_fmtp = switch_amr_fmtp_parse;
 #endif 
-	switch_core_codec_add_implementation(pool, codec_interface, SWITCH_CODEC_TYPE_AUDIO,	/* enumeration defining the type of the codec */
-										 96,	/* the IANA code number */
+	for (count = 1; count <= 3; count++) {
+		switch_core_codec_add_implementation(pool, codec_interface, SWITCH_CODEC_TYPE_AUDIO,	/* enumeration defining the type of the codec */
+										 98,	/* the IANA code number */
 										 "AMR",	/* the IANA code name */
 										 "octet-align=0",	/* default fmtp to send (can be overridden by the init function) */
 										 8000,	/* samples transferred per second */
 										 8000,	/* actual samples transferred per second */
 										 12200,	/* bits transferred per second */
-										 20000,	/* number of microseconds per frame */
-										 160,	/* number of samples per frame */
-										 320,	/* number of bytes per frame decompressed */
+										 20000 * count,	/* number of microseconds per frame */
+										 160 * count,	/* number of samples per frame */
+										 320 * count,	/* number of bytes per frame decompressed */
 										 0,	/* number of bytes per frame compressed */
 										 1,	/* number of channels represented */
-										 1,	/* number of frames per network packet */
+										 1 * count,	/* number of frames per network packet */
 										 switch_amr_init,	/* function to initialize a codec handle using this implementation */
 										 switch_amr_encode,	/* function to encode raw data into encoded data */
 										 switch_amr_decode,	/* function to decode encoded data into raw data */
 										 switch_amr_destroy);	/* deinitalize a codec handle using this implementation */
+	}
 
 	/* indicate that the module should continue to be loaded */
 	return SWITCH_STATUS_SUCCESS;
