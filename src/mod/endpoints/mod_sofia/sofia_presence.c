@@ -221,6 +221,8 @@ switch_status_t sofia_presence_chat_send(switch_event_t *message_event)
 			switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "Not sending to local box for %s@%s\n", user, host);
 			/* our box let's not send it */
 		} else {
+//AlanE goto end, let kazoo handle chat msgs and stop freeswitch sending
+	 		goto end;
 			char *tmp;
 			switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "Can't find registered user %s@%s\n", user, host);
 			tmp = switch_mprintf("sip:%s@%s", user, host);
@@ -4989,14 +4991,11 @@ void sofia_presence_handle_sip_i_message(int status,
 						switch_event_fire(&event_dup);
 					}
 				}
-
 				if (session) {
 					if (switch_event_dup(&event_dup, event) == SWITCH_STATUS_SUCCESS) {
 						switch_core_session_queue_event(session, &event_dup);
 					}
 				}
-
-
 			} else {
 				abort();
 			}
