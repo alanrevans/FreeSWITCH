@@ -322,6 +322,7 @@ static switch_status_t switch_amr_encode(switch_codec_t *codec,
 										 unsigned int *flag)
 {
 
+    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "amr_encode: Process frame #\n");
 #ifdef AMR_PASSTHROUGH
 	switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "This codec is only usable in passthrough mode!\n");
 	return SWITCH_STATUS_FALSE;
@@ -336,6 +337,7 @@ static switch_status_t switch_amr_encode(switch_codec_t *codec,
     out_data_ptr = (switch_byte_t *)encoded_data;
     out_data_ptr[0] = 0x70;		// AlanE This is the AMR Header before the ToC 7 = 12.2kbit/sec
     out_data_ptr++;
+
 	*encoded_data_len = Encoder_Interface_Encode(context->encoder_state, context->enc_mode, (int16_t *) decoded_data, out_data_ptr, 0);
     if (*encoded_data_len<=0 || *encoded_data_len>32){
         switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "AMR Encoder Error!\n");
@@ -356,7 +358,8 @@ static int toc_list_check(uint8_t *tl, uint32_t buflen){
                 tl++;
                 s++;
                 if (s>buflen){
-                        return -1;
+        				switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "s (%d) > buflen (%d)\n", s, buflen);
+                        return s; // AlanE  was -1;
                 }
         }
         return s;
@@ -402,7 +405,7 @@ static switch_status_t switch_amr_decode(switch_codec_t *codec,
     for(i=0;i<toclen;++i){
         int index=toc_get_index(tocs[i]);
         int framesz;
-        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "Process frame #:%d\n", i);
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "amr_decode: Process frame #:%d\n", i);
         if(index == 15) { /* AlanE: No Data */
             switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "No Data in AMR Table of Contents!\n");
             break;
