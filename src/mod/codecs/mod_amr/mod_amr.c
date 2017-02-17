@@ -275,8 +275,9 @@ static switch_status_t switch_amr_init(switch_codec_t *codec, switch_codec_flag_
 			context->enc_mode = globals.default_bitrate;
 		}
 
-		switch_snprintf(fmtptmp, sizeof(fmtptmp), "octet-align=%d; mode-set=%d", switch_test_flag(context, AMR_OPT_OCTET_ALIGN) ? 1 : 0,
-						context->enc_mode);
+//		switch_snprintf(fmtptmp, sizeof(fmtptmp), "octet-align=%d; mode-set=%d", switch_test_flag(context, AMR_OPT_OCTET_ALIGN) ? 1 : 0,
+//						context->enc_mode);
+		switch_snprintf(fmtptmp, sizeof(fmtptmp), "octet-align=1; mode-set=%d", context->enc_mode);
 		codec->fmtp_out = switch_core_strdup(codec->memory_pool, fmtptmp);
 
 		context->enc_mode = AMR_DEFAULT_BITRATE;
@@ -471,7 +472,7 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_amr_load)
 		switch_core_codec_add_implementation(pool, codec_interface, SWITCH_CODEC_TYPE_AUDIO,	/* enumeration defining the type of the codec */
 										 98,	/* the IANA code number */
 										 "AMR",	/* the IANA code name */
-										 "octet-align=0",	/* default fmtp to send (can be overridden by the init function) */
+										 "octet-align=1",	/* default fmtp to send (can be overridden by the init function) */
 										 8000,	/* samples transferred per second */
 										 8000,	/* actual samples transferred per second */
 										 12200,	/* bits transferred per second */

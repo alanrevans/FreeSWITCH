@@ -6638,7 +6638,8 @@ static int rtp_common_write(switch_rtp_t *rtp_session,
 	}
 
 	if (send) {
-		send_msg->header.seq = htons(++rtp_session->seq);
+		send_msg->header.seq = htons(rtp_session->seq);
+        rtp_session->seq++;
 
 		if (rtp_session->flags[SWITCH_RTP_FLAG_BYTESWAP] && send_msg->header.pt == rtp_session->payload) {
 			switch_swap_linear((int16_t *)send_msg->body, (int) datalen);
