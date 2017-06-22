@@ -3,7 +3,7 @@ MODNAME=mod_amr
 
 AMR_DIR=$(switch_srcdir)/libs/amr
 AMR_BUILDDIR=$(switch_builddir)/libs/amr
-AMR_A=$(AMR_BUILDDIR)/.libs/libopencore-amrnb.so
+AMR_A=$(AMR_BUILDDIR)/amrnb/.libs/libopencore-amrnb.so
 
 mod_LTLIBRARIES = mod_amr.la 
 mod_amr_la_SOURCES  = mod_amr.c
@@ -15,7 +15,7 @@ if HAVE_AMR
 BUILT_SOURCES= $(AMR_A)
 mod_amr_la_CFLAGS += -I$(AMR_DIR)/amrnb
 mod_amr_la_LIBADD += $(AMR_A)
-LIBS += -L$(AMR_DIR)/.libs -lopencore-amrnb
+LIBS += -L$(AMR_DIR)/amrnb/.libs -lopencore-amrnb
 else
 mod_amr_la_CFLAGS += -DAMR_PASSTHROUGH
 endif
